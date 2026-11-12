@@ -1,0 +1,27 @@
+Cambio poblacional en Ecuador 2010–2022 — tablas descargables
+Generado: 2026-11-12. Geografía: división político-administrativa del Censo 2022.
+
+Archivos: <nivel>_categorias.csv y <nivel>_resumen.csv (nivel = pais, provincia, canton, parroquia;
+sector en .zip). Los valores 2010 por debajo del nivel nacional están interpolados a la geografía 2022
+(ponderación por edificaciones), por eso pueden tener decimales.
+
+<nivel>_categorias.csv
+  unidad          código DPA 2022 (2, 4, 6 o 12 dígitos)
+  variable        etnia | grupo_edad | estado_civil | seguridad_social | educacion
+  categoria       código de la categoría; etiqueta: nombre en español
+  n_2010, n_2022  personas
+  cambio_abs      n_2022 - n_2010
+  cambio_pct      variación porcentual de n (vacío si n_2010 = 0)
+  base_2010/2022  universo sin "Se ignora": población total (etnia, edad), 12 años y más
+                  (estado conyugal, seguridad social) o 25 años y más (nivel de instrucción)
+  pct_2010/2022   porcentaje de la categoría sobre la base
+  cambio_pp       pct_2022 - pct_2010 (puntos porcentuales)
+  pequena         True si la base es menor a 50 personas en algún año: interpretar con cautela
+
+<nivel>_resumen.csv
+  indicador       poblacion, edad_mediana, razon_dependencia, indice_envejecimiento,
+                  pct_aporta, pct_superior, escolaridad_media
+  v_2010, v_2022  valor del indicador; cambio = v_2022 - v_2010 (cambio_pct solo para población)
+  base_2010/2022, pequena  como arriba
+
+Fuente: INEC, Censos de Población y Vivienda 2010 y 2022. Elaboración propia.

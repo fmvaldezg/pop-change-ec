@@ -1,0 +1,8 @@
+unidad,nombre,indicador,v_2010,v_2022,cambio,cambio_pct,base_2010,base_2022,pequena
+EC,Ecuador,poblacion,14483499.0,16938986.0,2455487.0,16.954,14483499.0,16938986.0,False
+EC,Ecuador,edad_mediana,25.007,29.162,4.156,,14483499.0,16938986.0,False
+EC,Ecuador,razon_dependencia,60.675,52.529,-8.146,,14483499.0,16938986.0,False
+EC,Ecuador,indice_envejecimiento,20.778,35.256,14.478,,14483499.0,16938986.0,False
+EC,Ecuador,pct_aporta,21.268,26.384,5.116,,10236187.0,13122930.0,False
+EC,Ecuador,pct_superior,21.277,29.146,7.869,,6999495.0,9596261.0,False
+EC,Ecuador,escolaridad_media,9.52,11.278,1.759,,6980775.0,9596261.0,False

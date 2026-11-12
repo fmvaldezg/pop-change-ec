@@ -1,0 +1,1015 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cambio poblacional en Ecuador 2010–2022</title>
+<meta name="description" content="Mapa interactivo del cambio poblacional entre los censos 2010 y 2022 de Ecuador: autoidentificación étnica, edad, estado conyugal, nivel de instrucción y seguridad social, por provincia, cantón, parroquia y sector censal.">
+
+<!-- Google Analytics (GA4) — do not remove -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-RC52W8J799"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){ dataLayer.push(arguments); }
+  gtag('js', new Date());
+  gtag('config', 'G-RC52W8J799');
+</script>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pmtiles@3.2.1/dist/pmtiles.js"></script>
+
+<style>
+:root {
+  --bg:        rgb(254,254,254);
+  --surface:   #ffffff;
+  --sf2:       #f6f6f6;
+  --border:    #e3e3e3;
+  --text:      #111111;
+  --text2:     #52514e;
+  --muted:     #888888;
+  --accent:    #FF5A5F;
+  --shadow:    rgba(0,0,0,0.07);
+  --teal:      #0d9488;
+  --r:         10px;
+  --r-sm:      6px;
+  --header-h:  56px;
+  --panel-w:   372px;
+  /* data viz */
+  --s2022:     #2a78d6;   /* series: 2022 (filled) */
+  --s2010:     #52514e;   /* series: 2010 (outline) */
+  --grid:      #e1e0d9;
+  --small:     #ecebe7;
+  --hatch:     #a3a198;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg); color: var(--text);
+  font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+button, select, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--s2022); outline-offset: 2px; }
+
+/* ---------- header ---------- */
+header {
+  height: var(--header-h); flex: none; display: flex; align-items: center; gap: 24px;
+  padding: 0 18px; background: var(--surface); border-bottom: 1px solid var(--border);
+  box-shadow: 0 1px 4px var(--shadow); z-index: 3;
+}
+.logo { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.logo-mark { width: 22px; height: 22px; border-radius: 6px; flex: none;
+  background: linear-gradient(135deg, #da5450 0 50%, #3987e5 50% 100%); }
+.logo-name { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.logo-sub { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.stats { display: flex; gap: 22px; margin-left: auto; }
+.stat { display: flex; flex-direction: column; line-height: 1.15; }
+.stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+.stat-value { font-size: 15px; font-weight: 700; }
+
+/* ---------- layout ---------- */
+main { flex: 1; display: flex; min-height: 0; }
+#panel {
+  width: var(--panel-w); flex: none; overflow-y: auto; background: var(--surface);
+  border-right: 1px solid var(--border); z-index: 2;
+}
+#mapwrap { flex: 1; position: relative; min-width: 0; }
+#map { position: absolute; inset: 0; }
+
+.section { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+.section:last-child { border-bottom: 0; }
+.label { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted);
+  margin: 0 0 6px; font-weight: 600; }
+.field { margin-bottom: 12px; }
+.field:last-child { margin-bottom: 0; }
+select {
+  width: 100%; padding: 7px 30px 7px 10px; border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23888' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 10px center;
+  appearance: none; cursor: pointer;
+}
+select:hover { background-color: var(--sf2); }
+.seg { display: flex; border: 1px solid var(--border); border-radius: var(--r-sm); overflow: hidden; }
+.seg button {
+  flex: 1; border: 0; background: var(--surface); padding: 6px 4px; cursor: pointer; font-size: 12px;
+  border-right: 1px solid var(--border); white-space: nowrap;
+}
+.seg button:last-child { border-right: 0; }
+.seg button:hover:not(:disabled) { background: var(--sf2); }
+.seg button[aria-pressed="true"] { background: var(--text); color: #fff; font-weight: 600; }
+.seg button:disabled { color: #c3c2b7; cursor: not-allowed; }
+.seg.wrap { flex-wrap: wrap; }
+.seg.wrap button { flex: 1 1 50%; border-bottom: 1px solid var(--border); }
+.seg.wrap button:nth-child(2n) { border-right: 0; }
+.seg.wrap button:nth-last-child(-n+2) { border-bottom: 0; }
+.note { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+/* ---------- legend ---------- */
+#legend-title { font-weight: 600; margin-bottom: 2px; }
+#legend-sub { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+.lg-row { display: flex; align-items: center; gap: 8px; height: 20px; font-size: 12px; font-variant-numeric: tabular-nums; }
+.sw { width: 26px; height: 14px; border-radius: 3px; flex: none; box-shadow: inset 0 0 0 1px rgba(11,11,11,.08); }
+.sw-small { background: repeating-linear-gradient(135deg, var(--hatch) 0 1.2px, var(--small) 1.2px 5px); }
+.sw-nodata { background: #fff; box-shadow: inset 0 0 0 1px var(--border); }
+.lg-extra { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+.lg-neutral { color: var(--muted); }
+#legend-loading { font-size: 12px; color: var(--muted); display: none; }
+
+/* ---------- detail ---------- */
+#detail-empty { color: var(--muted); }
+.d-title { font-size: 15px; font-weight: 700; margin: 0; }
+.d-ctx { font-size: 12px; color: var(--muted); margin: 2px 0 10px; }
+.badge { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 99px; background: var(--sf2);
+  color: var(--text2); border: 1px solid var(--border); margin: 0 4px 8px 0; }
+.kpis { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.kpi { background: var(--sf2); border-radius: var(--r-sm); padding: 7px 9px; }
+.kpi .stat-value { font-size: 14px; }
+.series-key { display: flex; gap: 14px; font-size: 12px; color: var(--text2); margin: 6px 0 8px; }
+.key { display: inline-flex; align-items: center; gap: 5px; }
+.key-22 { width: 14px; height: 7px; background: var(--s2022); border-radius: 0 3px 3px 0; }
+.key-10 { width: 14px; height: 10px; border: 1.5px solid var(--s2010); border-radius: 2px; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); font-weight: 600;
+  text-align: right; padding: 0 0 4px 6px; }
+th:first-child { text-align: left; padding-left: 0; }
+td { padding: 5px 0 5px 6px; text-align: right; border-top: 1px solid var(--border); vertical-align: top; white-space: nowrap; }
+td:first-child { text-align: left; padding-left: 0; white-space: normal; }
+tr.on td { background: #f2f7fd; }
+tr.on td:first-child { box-shadow: inset 3px 0 0 var(--s2022); padding-left: 6px; }
+.cat-name { display: block; margin-bottom: 4px; }
+.track { position: relative; height: 10px; }
+.b22 { position: absolute; left: 0; top: 2px; height: 6px; background: var(--s2022); border-radius: 0 3px 3px 0; }
+.b10 { position: absolute; left: 0; top: 0; height: 10px; border: 1.5px solid var(--s2010); border-radius: 2px; }
+.pos { color: #184f95; } .neg { color: #8c2828; }
+.sub-h { font-weight: 600; margin: 16px 0 4px; }
+.pyr svg { width: 100%; height: auto; display: block; }
+.pyr text { font-size: 9.5px; fill: var(--text2); font-variant-numeric: tabular-nums; }
+.dim { color: var(--muted); }
+
+/* ---------- methodology & downloads ---------- */
+details summary { cursor: pointer; font-weight: 600; list-style: none; display: flex; justify-content: space-between; }
+details summary::-webkit-details-marker { display: none; }
+details summary::after { content: "+"; color: var(--muted); font-weight: 400; }
+details[open] summary::after { content: "–"; }
+.method p { margin: 8px 0; color: var(--text2); }
+.dl { display: grid; grid-template-columns: 1fr auto auto; gap: 4px 10px; align-items: center; margin-top: 8px; font-size: 12px; }
+.dl a { color: var(--teal); text-decoration: none; font-weight: 600; }
+.dl a:hover { text-decoration: underline; }
+.foot { font-size: 11px; color: var(--muted); }
+.foot a { color: inherit; }
+
+/* ---------- map overlays ---------- */
+.search { position: absolute; top: 12px; left: 12px; width: 300px; z-index: 2; }
+.search input {
+  width: 100%; padding: 9px 12px 9px 32px; border: 1px solid var(--border); border-radius: var(--r);
+  background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14'%3E%3Ccircle cx='6' cy='6' r='4.5' fill='none' stroke='%23888' stroke-width='1.5'/%3E%3Cpath d='M9.5 9.5L13 13' stroke='%23888' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat 11px center;
+  box-shadow: 0 2px 8px var(--shadow);
+}
+.results { list-style: none; margin: 4px 0 0; padding: 4px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r); box-shadow: 0 4px 14px rgba(0,0,0,.1); display: none; max-height: 320px; overflow-y: auto; }
+.results li { padding: 6px 8px; border-radius: var(--r-sm); cursor: pointer; }
+.results li[aria-selected="true"], .results li:hover { background: var(--sf2); }
+.results .ctx { font-size: 11px; color: var(--muted); display: block; }
+#hint {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 2; display: none;
+  background: var(--text); color: #fff; padding: 7px 14px; border-radius: 99px; font-size: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.2); white-space: nowrap;
+}
+#hint button { background: none; border: 0; color: #fff; text-decoration: underline; cursor: pointer; padding: 0 0 0 6px; }
+#tooltip {
+  position: absolute; z-index: 3; pointer-events: none; display: none; max-width: 260px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-sm);
+  box-shadow: 0 4px 14px rgba(0,0,0,.12); padding: 7px 10px; font-size: 12px;
+}
+#tooltip .tt-name { font-weight: 600; font-size: 13px; }
+#tooltip .tt-val { font-size: 14px; font-weight: 700; margin-top: 2px; }
+#tooltip .tt-note { color: var(--muted); margin-top: 2px; }
+#panel-toggle { display: none; }
+.maplibregl-ctrl-attrib { font-size: 10px; }
+
+/* ---------- mobile: panel becomes a bottom sheet ---------- */
+@media (max-width: 760px) {
+  .stats, .logo-sub { display: none; }
+  header { padding: 0 16px; }
+  main { flex-direction: column-reverse; }
+  #panel { width: 100%; height: 46vh; border-right: 0; border-top: 1px solid var(--border);
+    box-shadow: 0 -2px 10px var(--shadow); transition: height .2s; }
+  #panel.collapsed { height: 44px; overflow: hidden; }
+  #panel-toggle { display: flex; width: 100%; justify-content: space-between; align-items: center;
+    padding: 12px 16px; border: 0; border-bottom: 1px solid var(--border); background: var(--surface);
+    font-weight: 600; cursor: pointer; position: sticky; top: 0; z-index: 1; }
+  .search { left: 16px; right: 56px; width: auto; }
+  #hint { top: 60px; white-space: normal; text-align: center; width: calc(100% - 32px); border-radius: var(--r); }
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">
+    <div class="logo-mark" aria-hidden="true"></div>
+    <div style="min-width:0">
+      <div class="logo-name">Cambio poblacional en Ecuador</div>
+      <div class="logo-sub">Censos de Población y Vivienda 2010 y 2022</div>
+    </div>
+  </div>
+  <div class="stats" id="stats" aria-label="Totales nacionales"></div>
+</header>
+
+<main>
+  <aside id="panel" aria-label="Controles y detalle">
+    <button id="panel-toggle" aria-expanded="true">Opciones y detalle <span aria-hidden="true">▾</span></button>
+
+    <div class="section">
+      <div class="field">
+        <p class="label" id="lbl-nivel">Nivel territorial</p>
+        <div class="seg" id="seg-nivel" role="group" aria-labelledby="lbl-nivel"></div>
+      </div>
+      <div class="field">
+        <label class="label" for="sel-tema">Tema</label>
+        <select id="sel-tema"></select>
+      </div>
+      <div class="field">
+        <label class="label" for="sel-cat" id="lbl-cat">Categoría</label>
+        <select id="sel-cat"></select>
+      </div>
+      <div class="field">
+        <p class="label" id="lbl-med">Medida</p>
+        <div class="seg wrap" id="seg-med" role="group" aria-labelledby="lbl-med"></div>
+      </div>
+    </div>
+
+    <div class="section" aria-live="polite">
+      <div id="legend-title"></div>
+      <div id="legend-sub"></div>
+      <div id="legend-loading">Cargando datos…</div>
+      <div id="legend-rows"></div>
+    </div>
+
+    <div class="section" id="detail" aria-live="polite">
+      <p class="label">Detalle</p>
+      <div id="detail-empty">Haga clic en una unidad del mapa o búsquela por nombre.</div>
+      <div id="detail-body"></div>
+    </div>
+
+    <div class="section method">
+      <details>
+        <summary>Metodología y notas</summary>
+        <p><b>Fuentes.</b> INEC, Censos de Población y Vivienda 2010 y 2022 (bases anonimizadas a nivel de sector); base cartográfica del CPV 2022 (Marco Geoestadístico 2023); sectores censales 2010 (geodatabase 2014 ajustada); Clasificador Geográfico Estadístico 2022.</p>
+        <p><b>Geografía.</b> Todo se presenta con la división político-administrativa del Censo 2022: 24 provincias, 221 cantones, 1.042 parroquias y 52.960 sectores censales.</p>
+        <p><b>Datos 2010 en límites 2022.</b> Los sectores cambiaron entre censos. Cada sector 2010 se distribuyó entre los sectores 2022 que lo cubren, en proporción a las edificaciones 2022 ubicadas dentro de manzanas 2010 (zona urbana) o dentro del sector (zona rural). Por eso las cifras 2010 por debajo del nivel nacional son estimaciones y pueden tener decimales.</p>
+        <p><b>Armonización.</b> Afroecuatoriano incluye negro y mulato (como en 2022). ISSFA e ISSPOL se presentan juntos. El nivel de instrucción se compara para la población de 25 años y más, alineando primaria/secundaria (2010) con educación básica/bachillerato (2022) mediante los años de escolaridad. Estado conyugal y seguridad social: población de 12 años y más.</p>
+        <p><b>Porcentajes.</b> Se calculan sobre la población con respuesta: «Se ignora» se excluye (en 2022 el INEC imputó los casos sin respuesta).</p>
+        <p><b>Bases pequeñas.</b> Las unidades con menos de 50 personas en la base de la variable, en cualquiera de los dos años, aparecen rayadas y no se colorean: sus porcentajes son demasiado inestables.</p>
+        <p><b>Cautela.</b> Parte del cambio puede reflejar diferencias de cobertura entre ambos censos y no solo cambios demográficos. A nivel de sector el cambio es más ruidoso que en niveles agregados.</p>
+        <p class="foot">Código, documentación y validaciones: <a href="https://github.com/fmvaldezg/pop-change-ec" target="_blank" rel="noopener">github.com/fmvaldezg/pop-change-ec</a></p>
+      </details>
+    </div>
+
+    <div class="section">
+      <details>
+        <summary>Descargar datos (CSV)</summary>
+        <div class="dl" id="downloads"></div>
+        <p class="foot" style="margin-top:8px"><a href="assets/descargas/LEEME.txt" target="_blank">Diccionario de columnas (LEEME.txt)</a></p>
+      </details>
+    </div>
+  </aside>
+
+  <div id="mapwrap">
+    <div id="map" role="region" aria-label="Mapa"></div>
+    <div class="search" role="search">
+      <input id="search" type="search" placeholder="Buscar provincia, cantón o parroquia" autocomplete="off"
+             aria-label="Buscar provincia, cantón o parroquia" aria-controls="results" aria-autocomplete="list">
+      <ul class="results" id="results" role="listbox"></ul>
+    </div>
+    <div id="hint" role="status"></div>
+    <div id="tooltip" role="tooltip"></div>
+  </div>
+</main>
+
+<noscript><p style="padding:20px">Este mapa necesita JavaScript.</p></noscript>
+
+<script>
+"use strict";
+// ======================================================================
+// Config
+// ======================================================================
+const LEVELS = ["provincia", "canton", "parroquia", "sector"];
+const LEVEL_LABEL = { provincia: "Provincia", canton: "Cantón", parroquia: "Parroquia", sector: "Sector" };
+const SECTOR_MINZOOM = 9;
+const MIN_BASE = 50;
+const ECUADOR = [[-81.15, -5.05], [-75.15, 1.5]]; // mainland
+// Sequential (one hue, light -> dark) and diverging (red <-> gray <-> blue, equal steps per arm).
+const SEQ = ["#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#1c5cab", "#0d366b"];
+const DIV = ["#8c2828", "#da5450", "#f3ada7", "#f0efec", "#9ec5f4", "#3987e5", "#184f95"];
+const SMALL = "#ecebe7", NODATA = "#ffffff";
+const DEFAULT_CAT = { etnia: "indigena", grupo_edad: "65_mas", estado_civil: "soltero",
+                      seguridad_social: "iess_general", educacion: "superior", resumen: "edad_mediana" };
+const MEDIDAS = {
+  variable: [["pp", "Cambio (pp)"], ["v22", "% 2022"], ["v10", "% 2010"], ["vpct", "Var. % personas"]],
+  resumen:  [["pp", "Cambio"], ["v22", "2022"], ["v10", "2010"], ["vpct", "Var. %"]],
+};
+const DOWNLOADS = [["Nacional", "pais"], ["Provincias", "provincia"], ["Cantones", "canton"],
+                   ["Parroquias", "parroquia"], ["Sectores (zip)", "sector"]];
+
+// ======================================================================
+// State, data cache, formatting
+// ======================================================================
+const state = { nivel: "parroquia", tema: "etnia", cat: "indigena", med: "pp", sel: null };
+let META = null;
+const cache = new Map();
+function load(nivel, file) {
+  const key = nivel + "/" + file;
+  if (!cache.has(key)) {
+    cache.set(key, fetch(`assets/data/${key}.json`).then(r => {
+      if (!r.ok) throw new Error(`${key}: HTTP ${r.status}`);
+      return r.json();
+    }));
+  }
+  return cache.get(key);
+}
+const loadMeta = () => fetch("assets/data/meta.json").then(r => r.json());
+
+const nfCache = {};
+function nf(d) { return nfCache[d] || (nfCache[d] = new Intl.NumberFormat("es-EC", { minimumFractionDigits: d, maximumFractionDigits: d })); }
+const ok = v => v !== null && v !== undefined && Number.isFinite(v);
+function fmt(v, d = 0) { return ok(v) ? nf(d).format(v) : "—"; }
+function fmtS(v, d = 0) {
+  if (!ok(v)) return "—";
+  const r = Number(v.toFixed(d));
+  return (r > 0 ? "+" : r < 0 ? "−" : "±") + nf(d).format(Math.abs(r));
+}
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const norm = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+// ---- index helpers ------------------------------------------------------
+const idxOf = {};   // nivel -> Map(id -> index)
+async function units(nivel) {
+  const U = await load(nivel, "unidades");
+  if (!idxOf[nivel]) idxOf[nivel] = new Map(U.ids.map((id, i) => [id, i]));
+  return U;
+}
+const NAMES = {};   // filled at start for provincia / canton / parroquia
+function nameOf(nivel, id) {
+  if (nivel === "sector") return "Sector " + id.slice(6, 9) + "-" + id.slice(9);
+  const U = NAMES[nivel];
+  return U ? U.nombres[idxOf[nivel].get(id)] || id : id;
+}
+function contextOf(nivel, id) {
+  const parts = [];
+  if (nivel === "sector") parts.push("Parroquia " + nameOf("parroquia", id.slice(0, 6)));
+  if (nivel === "sector" || nivel === "parroquia") parts.push("Cantón " + nameOf("canton", id.slice(0, 4)));
+  if (nivel !== "provincia") parts.push(nameOf("provincia", id.slice(0, 2)));
+  return parts.join(" · ");
+}
+
+// ======================================================================
+// Metric computation
+// ======================================================================
+function variable(id) { return META.variables.find(v => v.id === id); }
+function indicador(id) { return META.indicadores.find(v => v.id === id); }
+
+const baseCache = new Map();
+function bases(nivel, D) {
+  const key = nivel + "/" + D.variable;
+  if (baseCache.has(key)) return baseCache.get(key);
+  const known = D.categorias.map(c => c !== "ignorado");
+  const out = {};
+  for (const y of ["2010", "2022"]) {
+    const n = D.n[y][0].length, b = new Float64Array(n);
+    D.n[y].forEach((arr, k) => { if (known[k]) for (let i = 0; i < n; i++) b[i] += arr[i] || 0; });
+    out[y] = b;
+  }
+  baseCache.set(key, out);
+  return out;
+}
+
+// Unit/format spec of the current metric
+function spec() {
+  if (state.tema === "resumen") {
+    const ind = indicador(state.cat), d = ind.decimales;
+    const unit = ind.unidad === "%" ? "%" : ind.unidad === "años" ? "años" : "";
+    if (state.med === "vpct") return { kind: "div", suf: "%", d: 1, signed: true };
+    if (state.med === "pp") return { kind: "div", suf: unit === "%" ? "pp" : unit, d: Math.max(d, 1), signed: true };
+    return { kind: "seq", suf: unit, d, signed: false };
+  }
+  if (state.med === "pp") return { kind: "div", suf: "pp", d: 1, signed: true };
+  if (state.med === "vpct") return { kind: "div", suf: "%", d: 1, signed: true };
+  return { kind: "seq", suf: "%", d: 1, signed: false };
+}
+function fmtVal(v, sp, d = sp.d) {
+  if (!ok(v)) return "—";
+  const s = sp.signed ? fmtS(v, d) : fmt(v, d);
+  return sp.suf ? `${s} ${sp.suf}` : s;
+}
+
+// Values for every unit of a level under the current state
+async function compute(nivel) {
+  const U = await units(nivel);
+  const n = U.ids.length;
+  const vals = new Array(n).fill(null), pool = [];
+  const small = new Uint8Array(n);
+  if (state.tema === "resumen") {
+    const R = await load(nivel, "resumen");
+    const k = R.indicadores.indexOf(state.cat);
+    const a = R.v["2010"][k], b = R.v["2022"][k], pq = R.pequena[state.cat];
+    for (let i = 0; i < n; i++) {
+      small[i] = pq[i];
+      const x = a[i], y = b[i];
+      vals[i] = state.med === "pp" ? (ok(x) && ok(y) ? y - x : null)
+              : state.med === "v22" ? y : state.med === "v10" ? x
+              : (ok(x) && ok(y) && x > 0 ? 100 * (y / x - 1) : null);
+      if (!pq[i]) { if (ok(x)) pool.push(x); if (ok(y)) pool.push(y); }
+    }
+  } else {
+    const D = await load(nivel, state.tema);
+    const B = bases(nivel, D), k = D.categorias.indexOf(state.cat);
+    const a = D.n["2010"][k], b = D.n["2022"][k];
+    for (let i = 0; i < n; i++) {
+      const b10 = B["2010"][i], b22 = B["2022"][i];
+      small[i] = Math.min(b10, b22) < MIN_BASE ? 1 : 0;
+      const p10 = b10 > 0 ? 100 * a[i] / b10 : null, p22 = b22 > 0 ? 100 * b[i] / b22 : null;
+      vals[i] = state.med === "pp" ? (ok(p10) && ok(p22) ? p22 - p10 : null)
+              : state.med === "v22" ? p22 : state.med === "v10" ? p10
+              : (a[i] > 0 ? 100 * (b[i] / a[i] - 1) : null);
+      if (!small[i]) { if (ok(p10)) pool.push(p10); if (ok(p22)) pool.push(p22); }
+    }
+  }
+  return { U, vals, small, pool };
+}
+
+// ---- classing ------------------------------------------------------------
+function quantile(s, q) {
+  if (!s.length) return 0;
+  const p = (s.length - 1) * q, lo = Math.floor(p), hi = Math.ceil(p);
+  return s[lo] + (s[hi] - s[lo]) * (p - lo);
+}
+function niceStep(x) {
+  if (!(x > 0)) return 1;
+  const e = 10 ** Math.floor(Math.log10(x)), f = x / e;
+  return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * e;
+}
+function decimalsFor(step) {
+  let d = 0;
+  while (d < 4 && Math.abs(Math.round(step * 10 ** d) - step * 10 ** d) > 1e-9) d++;
+  return d;
+}
+function niceNear(x) {  // nearest of 1, 2, 2.5, 5 × 10^k (log distance)
+  if (!(x > 0)) return 1;
+  const e = 10 ** Math.floor(Math.log10(x));
+  return [1, 2, 2.5, 5, 10].map(f => f * e).reduce((b, c) => Math.abs(Math.log(c / x)) < Math.abs(Math.log(b / x)) ? c : b);
+}
+// Diverging: symmetric around 0, edges at ±s, ±2s, ±4s (7 classes; centre = small change)
+function divScale(vals, small) {
+  const abs = [];
+  vals.forEach((v, i) => { if (ok(v) && !small[i]) abs.push(Math.abs(v)); });
+  abs.sort((x, y) => x - y);
+  const s = niceNear(quantile(abs, 0.9) / 4);
+  return { edges: [-4, -2, -1, 1, 2, 4].map(k => k * s), colors: DIV, d: decimalsFor(s), neutral: 3 };
+}
+// Sequential: up to 6 quantile classes over both years pooled (same scale for 2010 and 2022)
+function seqScale(pool) {
+  const s = pool.slice().sort((x, y) => x - y);
+  if (!s.length) return { edges: [], colors: [SEQ[0]], d: 0 };
+  const st = niceStep((quantile(s, 0.95) - quantile(s, 0.05)) / 25);
+  let edges = [1, 2, 3, 4, 5].map(j => Math.round(quantile(s, j / 6) / st) * st);
+  edges = edges.filter((e, i) => i === 0 || e > edges[i - 1]);
+  const nc = edges.length + 1;
+  const pick = nc === 6 ? SEQ : Array.from({ length: nc }, (_, j) => SEQ[Math.round(j * 5 / Math.max(1, nc - 1))]);
+  return { edges, colors: pick, d: decimalsFor(st) };
+}
+function classify(v, edges) {
+  for (let j = 0; j < edges.length; j++) if (v < edges[j]) return j;
+  return edges.length;
+}
+
+// ======================================================================
+// Map
+// ======================================================================
+const protocol = new pmtiles.Protocol();
+maplibregl.addProtocol("pmtiles", protocol.tile);
+const tileUrl = n => "pmtiles://" + new URL(`assets/tiles/${n}.pmtiles`, location.href).href;
+
+const map = new maplibregl.Map({
+  container: "map",
+  style: "https://tiles.openfreemap.org/styles/positron",
+  bounds: ECUADOR, fitBoundsOptions: { padding: 20 },
+  minZoom: 3.5, maxZoom: 16, dragRotate: false, pitchWithRotate: false,
+  attributionControl: { compact: true, customAttribution: "Datos: INEC, CPV 2010 y 2022" },
+});
+map.touchZoomRotate.disableRotation();
+map.on("error", e => console.error("map error:", e.error && e.error.message, e.sourceId || ""));
+map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+map.addControl(new maplibregl.ScaleControl({ unit: "metric" }), "bottom-right");
+
+function hatchImage() {
+  const px = 2, sz = 8 * px, c = document.createElement("canvas");
+  c.width = c.height = sz;
+  const g = c.getContext("2d");
+  g.fillStyle = SMALL; g.fillRect(0, 0, sz, sz);
+  g.strokeStyle = "#a3a198"; g.lineWidth = 1.2 * px;
+  for (const o of [-sz, 0, sz]) { g.beginPath(); g.moveTo(o, sz); g.lineTo(o + sz, 0); g.stroke(); }
+  return { width: sz, height: sz, data: g.getImageData(0, 0, sz, sz).data };
+}
+
+let mapReady = false;
+map.on("load", () => {
+  map.addImage("hatch", hatchImage(), { pixelRatio: 2 });
+  const firstSymbol = map.getStyle().layers.find(l => l.type === "symbol")?.id;
+  for (const n of LEVELS) {
+    map.addSource(n, { type: "vector", url: tileUrl(n), promoteId: "id" });
+    const common = { source: n, "source-layer": n, layout: { visibility: "none" } };
+    if (n === "sector") common.minzoom = SECTOR_MINZOOM;
+    map.addLayer({ ...common, id: `fill-${n}`, type: "fill",
+      paint: { "fill-color": NODATA, "fill-opacity": 0.86 } }, firstSymbol);
+    map.addLayer({ ...common, id: `hatch-${n}`, type: "fill",
+      paint: { "fill-pattern": "hatch",
+               "fill-opacity": ["case", ["boolean", ["feature-state", "p"], false], 0.9, 0] } }, firstSymbol);
+    map.addLayer({ ...common, id: `line-${n}`, type: "line",
+      paint: { "line-color": "#ffffff",
+               "line-width": ["interpolate", ["linear"], ["zoom"], 5, n === "sector" ? 0.2 : 0.4, 12, n === "sector" ? 0.8 : 1.4],
+               "line-opacity": 0.85 } }, firstSymbol);
+  }
+  // context borders above fills: cantón (for parroquia/sector) and provincia
+  map.addLayer({ id: "ctx-canton", type: "line", source: "canton", "source-layer": "canton", minzoom: 7,
+    layout: { visibility: "none" }, paint: { "line-color": "#8f8d85", "line-width": 0.6, "line-opacity": 0.7 } }, firstSymbol);
+  map.addLayer({ id: "ctx-provincia", type: "line", source: "provincia", "source-layer": "provincia",
+    layout: { visibility: "none" }, paint: { "line-color": "#6b6a65",
+      "line-width": ["interpolate", ["linear"], ["zoom"], 5, 0.7, 10, 1.6] } }, firstSymbol);
+  // hover + selection outline for every level
+  for (const n of LEVELS) {
+    map.addLayer({ id: `hl-${n}`, type: "line", source: n, "source-layer": n, layout: { visibility: "none" },
+      ...(n === "sector" ? { minzoom: SECTOR_MINZOOM } : {}),
+      paint: { "line-color": "#111111",
+               "line-width": ["case", ["boolean", ["feature-state", "sel"], false], 2.6,
+                                      ["boolean", ["feature-state", "hover"], false], 1.4, 0] } });
+  }
+  // basemap labels in Spanish where available
+  for (const l of map.getStyle().layers) {
+    if (l.type === "symbol" && l.layout && JSON.stringify(l.layout["text-field"] || "").includes("name")) {
+      map.setLayoutProperty(l.id, "text-field", ["coalesce", ["get", "name:es"], ["get", "name"]]);
+    }
+  }
+  mapReady = true;
+  if (state.view) map.jumpTo(state.view);
+  render();
+  map.on("moveend", () => { updateHint(); writeHash(); });
+  map.on("zoomend", updateHint);
+});
+
+// ---- render current state onto the map ----------------------------------
+let token = 0, current = null;
+async function render() {
+  if (!mapReady || !META) return;
+  const my = ++token, nivel = state.nivel;
+  const slow = setTimeout(() => (document.getElementById("legend-loading").style.display = "block"), 150);
+  let res;
+  try { res = await compute(nivel); }
+  catch (e) { console.error(e); clearTimeout(slow); document.getElementById("legend-loading").textContent = "No se pudieron cargar los datos."; return; }
+  clearTimeout(slow);
+  document.getElementById("legend-loading").style.display = "none";
+  if (my !== token) return;
+
+  const sp = spec();
+  const scale = sp.kind === "div" ? divScale(res.vals, res.small) : seqScale(res.pool);
+  const ids = res.U.ids;
+  const cls = new Int8Array(ids.length);
+  for (let i = 0; i < ids.length; i++) {
+    const v = res.vals[i];
+    const c = !ok(v) ? -1 : res.small[i] ? -2 : classify(v, scale.edges);
+    cls[i] = c;
+    map.setFeatureState({ source: nivel, sourceLayer: nivel, id: ids[i] }, { c, p: c === -2 });
+  }
+  const expr = ["match", ["to-number", ["coalesce", ["feature-state", "c"], -1]], -2, SMALL];
+  scale.colors.forEach((col, j) => expr.push(j, col));
+  expr.push(NODATA);
+  map.setPaintProperty(`fill-${nivel}`, "fill-color", expr);
+
+  for (const n of LEVELS) {
+    const vis = n === nivel ? "visible" : "none";
+    for (const p of ["fill", "hatch", "line", "hl"]) map.setLayoutProperty(`${p}-${n}`, "visibility", vis);
+  }
+  map.setLayoutProperty("ctx-provincia", "visibility", nivel === "provincia" ? "none" : "visible");
+  map.setLayoutProperty("ctx-canton", "visibility", nivel === "parroquia" || nivel === "sector" ? "visible" : "none");
+
+  current = { nivel, res, sp, scale, cls };
+  renderLegend();
+  updateHint();
+  renderDetail();
+  writeHash();
+}
+
+// ---- hover tooltip ---------------------------------------------------------
+const tip = document.getElementById("tooltip");
+let hovered = null;
+function setHover(id) {
+  if (hovered && hovered.id === id && hovered.nivel === state.nivel) return;
+  if (hovered) map.setFeatureState({ source: hovered.nivel, sourceLayer: hovered.nivel, id: hovered.id }, { hover: false });
+  hovered = id ? { nivel: state.nivel, id } : null;
+  if (hovered) map.setFeatureState({ source: state.nivel, sourceLayer: state.nivel, id }, { hover: true });
+}
+map.on("mousemove", e => {
+  if (!current) return;
+  const f = map.queryRenderedFeatures(e.point, { layers: [`fill-${state.nivel}`] })[0];
+  if (!f) { setHover(null); tip.style.display = "none"; map.getCanvas().style.cursor = ""; return; }
+  const id = f.properties.id, i = idxOf[state.nivel].get(id);
+  setHover(id);
+  map.getCanvas().style.cursor = "pointer";
+  const v = i === undefined ? null : current.res.vals[i];
+  const small = i !== undefined && current.res.small[i];
+  tip.innerHTML = `<div class="tt-name">${esc(nameOf(state.nivel, id))}</div>
+    <div class="dim">${esc(contextOf(state.nivel, id))}</div>
+    <div class="tt-val">${small ? "—" : fmtVal(v, current.sp)}</div>
+    <div class="tt-note">${small ? `Base menor a ${MIN_BASE} personas` : esc(shortMetric())}</div>`;
+  const W = map.getContainer().clientWidth, H = map.getContainer().clientHeight;
+  tip.style.display = "block";
+  const x = e.point.x + 14 + tip.offsetWidth > W ? e.point.x - 14 - tip.offsetWidth : e.point.x + 14;
+  const y = Math.min(e.point.y + 14, H - tip.offsetHeight - 6);
+  tip.style.left = x + "px"; tip.style.top = y + "px";
+});
+map.on("mouseout", () => { setHover(null); tip.style.display = "none"; });
+map.on("movestart", () => { setHover(null); tip.style.display = "none"; });
+map.on("click", e => {
+  const f = map.queryRenderedFeatures(e.point, { layers: [`fill-${state.nivel}`] })[0];
+  select(f ? f.properties.id : null);
+});
+
+function select(id) {
+  if (state.sel && state.selNivel) {
+    map.setFeatureState({ source: state.selNivel, sourceLayer: state.selNivel, id: state.sel }, { sel: false });
+  }
+  state.sel = id; state.selNivel = id ? state.nivel : null;
+  if (id) map.setFeatureState({ source: state.nivel, sourceLayer: state.nivel, id }, { sel: true });
+  renderDetail();
+  writeHash();
+  if (id && innerWidth <= 760) setPanel(true);
+}
+
+function updateHint() {
+  const h = document.getElementById("hint");
+  if (state.nivel === "sector" && map.getZoom() < SECTOR_MINZOOM) {
+    h.innerHTML = `Acerque el mapa para ver los sectores censales <button type="button" id="hint-go">Ir a Quito</button>`;
+    h.style.display = "block";
+    document.getElementById("hint-go").onclick = () => map.flyTo({ center: [-78.5, -0.2], zoom: 11 });
+  } else h.style.display = "none";
+}
+
+// ======================================================================
+// Controls
+// ======================================================================
+function catOptions() {
+  return state.tema === "resumen"
+    ? META.indicadores.map(i => [i.id, i.label])
+    : variable(state.tema).categorias.filter(c => !c.ignorado).map(c => [c.id, c.label]);
+}
+function buildControls() {
+  const segN = document.getElementById("seg-nivel");
+  segN.innerHTML = LEVELS.map(n => `<button type="button" data-v="${n}">${LEVEL_LABEL[n]}</button>`).join("");
+  segN.onclick = e => {
+    const b = e.target.closest("button"); if (!b) return;
+    if (state.sel) select(null);
+    state.nivel = b.dataset.v; syncControls(); render();
+  };
+  const selT = document.getElementById("sel-tema");
+  selT.innerHTML = META.variables.map(v => `<option value="${v.id}">${esc(v.label)}</option>`).join("")
+    + `<option value="resumen">Indicadores resumen</option>`;
+  selT.onchange = () => {
+    state.tema = selT.value;
+    state.cat = DEFAULT_CAT[state.tema] || catOptions()[0][0];
+    if (state.tema === "resumen" && state.med === "vpct" && state.cat !== "poblacion") state.med = "pp";
+    syncControls(); render();
+  };
+  const selC = document.getElementById("sel-cat");
+  selC.onchange = () => {
+    state.cat = selC.value;
+    if (state.tema === "resumen" && state.med === "vpct" && state.cat !== "poblacion") state.med = "pp";
+    syncControls(); render();
+  };
+  document.getElementById("seg-med").onclick = e => {
+    const b = e.target.closest("button"); if (!b || b.disabled) return;
+    state.med = b.dataset.v; syncControls(); render();
+  };
+  document.getElementById("downloads").innerHTML = DOWNLOADS.map(([lab, n]) => {
+    const ext = n === "sector" ? ".csv.zip" : ".csv";
+    return `<span>${lab}</span><a href="assets/descargas/${n}_categorias${ext}" download>Categorías</a>
+            <a href="assets/descargas/${n}_resumen${ext}" download>Resumen</a>`;
+  }).join("");
+}
+function syncControls() {
+  document.querySelectorAll("#seg-nivel button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === state.nivel));
+  document.getElementById("sel-tema").value = state.tema;
+  const selC = document.getElementById("sel-cat");
+  selC.innerHTML = catOptions().map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join("");
+  selC.value = state.cat;
+  document.getElementById("lbl-cat").textContent = state.tema === "resumen" ? "Indicador" : "Categoría";
+  const kind = state.tema === "resumen" ? "resumen" : "variable";
+  const seg = document.getElementById("seg-med");
+  seg.innerHTML = MEDIDAS[kind].map(([v, l]) => {
+    const dis = kind === "resumen" && v === "vpct" && state.cat !== "poblacion";
+    return `<button type="button" data-v="${v}" aria-pressed="${v === state.med}" ${dis ? "disabled title='Solo para población'" : ""}>${l}</button>`;
+  }).join("");
+}
+
+// ======================================================================
+// Legend
+// ======================================================================
+function catLabel() {
+  return state.tema === "resumen" ? indicador(state.cat).label
+    : variable(state.tema).categorias.find(c => c.id === state.cat).label;
+}
+function shortMetric() {
+  const r = state.tema === "resumen";
+  return { pp: r ? "Cambio 2010–2022" : "Cambio del porcentaje 2010–2022",
+           v22: r ? "Valor 2022" : "Porcentaje en 2022", v10: r ? "Valor 2010" : "Porcentaje en 2010",
+           vpct: "Variación del número de personas 2010–2022" }[state.med];
+}
+function renderLegend() {
+  const { sp, scale, cls, nivel } = current;
+  const r = state.tema === "resumen";
+  const title = {
+    pp: r ? `${catLabel()}: cambio 2010–2022` : `${catLabel()}: cambio en el porcentaje, 2010–2022`,
+    v22: r ? `${catLabel()}, 2022` : `${catLabel()}: porcentaje en 2022`,
+    v10: r ? `${catLabel()}, 2010` : `${catLabel()}: porcentaje en 2010`,
+    vpct: r ? `Población: variación 2010–2022` : `${catLabel()}: variación del número de personas, 2010–2022`,
+  }[state.med];
+  let sub = r ? (state.cat === "pct_aporta" ? "Población de 12 años y más" :
+                 ["pct_superior", "escolaridad_media"].includes(state.cat) ? "Población de 25 años y más" : "Población total")
+              : variable(state.tema).universo;
+  if (!r && state.med !== "vpct") sub += ", sin «Se ignora»";
+  if (state.med === "pp" && !r) sub += " · en puntos porcentuales (pp)";
+  sub += " · " + { provincia: "provincias", canton: "cantones", parroquia: "parroquias", sector: "sectores censales" }[nivel];
+  document.getElementById("legend-title").textContent = title;
+  document.getElementById("legend-sub").textContent = sub;
+
+  const counts = new Array(scale.colors.length).fill(0);
+  let nSmall = 0, nNo = 0;
+  const noGeo = new Set(current.res.U.sin_geometria || []), ids = current.res.U.ids;
+  cls.forEach((c, i) => { if (noGeo.has(ids[i])) return; c >= 0 ? counts[c]++ : c === -2 ? nSmall++ : nNo++; });
+  const e = scale.edges, d = scale.d;
+  const lab = v => (sp.signed ? fmtS(v, d) : fmt(v, d));
+  const suf = sp.suf ? " " + sp.suf : "";
+  const rows = scale.colors.map((col, j) => {
+    let t = j === 0 ? `menos de ${lab(e[0])}` : j === e.length ? `${lab(e[e.length - 1])} o más` : `${lab(e[j - 1])} a ${lab(e[j])}`;
+    if (!e.length) t = "todas las unidades";
+    const neutral = sp.kind === "div" && j === scale.neutral ? ` <span class="lg-neutral">(cambio pequeño)</span>` : "";
+    return { col, html: `<div class="lg-row"><span class="sw" style="background:${col}"></span><span>${t}${suf}${neutral}</span><span class="dim" style="margin-left:auto">${fmt(counts[j])}</span></div>` };
+  });
+  // diverging scales read top = increase
+  const ordered = sp.kind === "div" ? rows.slice().reverse() : rows;
+  document.getElementById("legend-rows").innerHTML = ordered.map(x => x.html).join("") +
+    `<div class="lg-extra">
+       <div class="lg-row"><span class="sw sw-small"></span><span>Base menor a ${MIN_BASE} personas</span><span class="dim" style="margin-left:auto">${fmt(nSmall)}</span></div>
+       ${nNo ? `<div class="lg-row"><span class="sw sw-nodata"></span><span>Sin datos</span><span class="dim" style="margin-left:auto">${fmt(nNo)}</span></div>` : ""}
+     </div>
+     <div class="note">Número de unidades por clase a la derecha. ${sp.kind === "div" ? "Clases simétricas alrededor de cero." : "Misma escala para 2010 y 2022."}</div>`;
+}
+
+// ======================================================================
+// Detail panel
+// ======================================================================
+async function renderDetail() {
+  const body = document.getElementById("detail-body"), empty = document.getElementById("detail-empty");
+  if (!state.sel || !META) { body.innerHTML = ""; empty.style.display = "block"; return; }
+  empty.style.display = "none";
+  const nivel = state.selNivel || state.nivel, id = state.sel;
+  const U = await units(nivel), i = idxOf[nivel].get(id);
+  if (i === undefined) { body.innerHTML = `<p class="dim">Sin datos para ${esc(id)}.</p>`; return; }
+  const [R, D, P] = await Promise.all([
+    load(nivel, "resumen"),
+    state.tema === "resumen" ? null : load(nivel, state.tema),
+    nivel === "sector" ? null : load(nivel, "piramide"),
+  ]);
+  if (state.sel !== id) return;
+  const rv = k => [R.v["2010"][R.indicadores.indexOf(k)][i], R.v["2022"][R.indicadores.indexOf(k)][i]];
+  const [p10, p22] = rv("poblacion");
+  const smallPop = R.pequena.poblacion[i];
+  const noGeo = nivel === "sector" && U.sin_geometria && U.sin_geometria.includes(id);
+
+  let h = `<h2 class="d-title">${esc(nameOf(nivel, id))}</h2>
+    <div class="d-ctx">${LEVEL_LABEL[nivel]}${contextOf(nivel, id) ? " · " + esc(contextOf(nivel, id)) : ""} · código ${esc(id)}</div>`;
+  if (smallPop) h += `<span class="badge">Población menor a ${MIN_BASE} personas</span>`;
+  if (noGeo) h += `<span class="badge">Sin polígono en la cartografía</span>`;
+  if (nivel !== "pais" && nivel !== "provincia") h += `<span class="badge">Cifras 2010 estimadas</span>`;
+  h += `<div class="kpis">
+      <div class="kpi"><div class="stat-label">Población 2010</div><div class="stat-value">${fmt(p10)}</div></div>
+      <div class="kpi"><div class="stat-label">Población 2022</div><div class="stat-value">${fmt(p22)}</div></div>
+      <div class="kpi"><div class="stat-label">Variación</div><div class="stat-value">${p10 > 0 ? fmtS(100 * (p22 / p10 - 1), 1) + " %" : "—"}</div></div>
+    </div>`;
+
+  if (D) h += categoryTable(D, nivel, i);
+  h += summaryTable(R, i);
+  if (P) h += pyramid(P, i);
+  body.innerHTML = h;
+}
+
+function categoryTable(D, nivel, i) {
+  const v = variable(D.variable), B = bases(nivel, D);
+  const b10 = B["2010"][i], b22 = B["2022"][i];
+  const rows = D.categorias.map((c, k) => {
+    const n10 = D.n["2010"][k][i], n22 = D.n["2022"][k][i];
+    return { c, n10, n22, p10: c !== "ignorado" && b10 > 0 ? 100 * n10 / b10 : null,
+             p22: c !== "ignorado" && b22 > 0 ? 100 * n22 / b22 : null,
+             label: v.categorias[k].label };
+  });
+  const known = rows.filter(r => r.c !== "ignorado");
+  const max = Math.max(1, ...known.flatMap(r => [r.p10 || 0, r.p22 || 0]));
+  const small = Math.min(b10, b22) < MIN_BASE;
+  let h = `<div class="sub-h">${esc(v.label)}</div>
+    <div class="dim" style="font-size:12px">${esc(v.universo)}: ${fmt(b10)} (2010) · ${fmt(b22)} (2022)${small ? ` — base menor a ${MIN_BASE}, interpretar con cautela` : ""}</div>
+    <div class="series-key"><span class="key"><span class="key-22"></span>2022</span><span class="key"><span class="key-10"></span>2010</span></div>
+    <table><thead><tr><th>Categoría</th><th>2010</th><th>2022</th><th>Cambio</th></tr></thead><tbody>`;
+  for (const r of known) {
+    const dpp = ok(r.p10) && ok(r.p22) ? r.p22 - r.p10 : null;
+    const cl = !ok(dpp) || Math.abs(dpp) < 0.05 ? "" : dpp > 0 ? "pos" : "neg";
+    h += `<tr class="${r.c === state.cat ? "on" : ""}"><td><span class="cat-name">${esc(r.label)}</span>
+        <div class="track" title="2010: ${fmt(r.p10, 1)} % · 2022: ${fmt(r.p22, 1)} %">
+          ${(r.p22 || 0) >= 0.05 ? `<div class="b22" style="width:${r.p22 / max * 100}%"></div>` : ""}
+          ${(r.p10 || 0) >= 0.05 ? `<div class="b10" style="width:${r.p10 / max * 100}%"></div>` : ""}</div></td>
+      <td>${fmt(r.p10, 1)} %</td><td>${fmt(r.p22, 1)} %</td><td class="${cl}">${fmtS(dpp, 1)} pp</td></tr>`;
+  }
+  h += `</tbody></table>`;
+  const ig = rows.find(r => r.c === "ignorado");
+  if (ig && (ig.n10 > 0.5 || ig.n22 > 0.5)) h += `<div class="note">«Se ignora» (excluido de los porcentajes): ${fmt(ig.n10)} en 2010 · ${fmt(ig.n22)} en 2022.</div>`;
+  return h;
+}
+
+function summaryTable(R, i) {
+  let h = `<div class="sub-h">Indicadores resumen</div>
+    <table><thead><tr><th>Indicador</th><th>2010</th><th>2022</th><th>Cambio</th></tr></thead><tbody>`;
+  for (const ind of META.indicadores) {
+    if (ind.id === "poblacion") continue;
+    const k = R.indicadores.indexOf(ind.id);
+    const a = R.v["2010"][k][i], b = R.v["2022"][k][i], d = ind.decimales;
+    const small = R.pequena[ind.id][i];
+    const suf = ind.unidad === "%" ? " pp" : "";
+    h += `<tr class="${state.tema === "resumen" && state.cat === ind.id ? "on" : ""}"><td>${esc(ind.label)}${small ? ' <span class="dim">*</span>' : ""}</td>
+      <td>${fmt(a, d)}</td><td>${fmt(b, d)}</td><td>${ok(a) && ok(b) ? fmtS(b - a, d) + suf : "—"}</td></tr>`;
+  }
+  h += `</tbody></table>`;
+  if (META.indicadores.some(ind => R.pequena[ind.id][i])) h += `<div class="note">* Base menor a ${MIN_BASE} personas.</div>`;
+  return h;
+}
+
+// Population pyramid: % of each year's total; 2022 = filled bars, 2010 = outline step
+function pyramid(P, i) {
+  const G = P.grupos.length, labels = META.piramide.grupos;
+  const get = (y, s) => P.grupos.map((_, g) => P.n[y][s][g][i] || 0);
+  const data = {};
+  for (const y of ["2010", "2022"]) {
+    const h = get(y, "1"), m = get(y, "2"), tot = h.concat(m).reduce((a, b) => a + b, 0) || 1;
+    data[y] = { "1": h.map(x => 100 * x / tot), "2": m.map(x => 100 * x / tot) };
+  }
+  const max = Math.max(0.5, ...["2010", "2022"].flatMap(y => [...data[y]["1"], ...data[y]["2"]]));
+  const W = 320, mid = 34, rowH = 9, top = 16, Hh = top + G * rowH + 18, half = (W - mid) / 2;
+  const xs = v => v / max * (half - 4);
+  let s = `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="Pirámide de población 2010 y 2022">
+    <text x="${half - 2}" y="10" text-anchor="end" style="font-weight:600">Hombres</text>
+    <text x="${half + mid + 2}" y="10" style="font-weight:600">Mujeres</text>`;
+  // gridline at max tick
+  const tick = niceStep(max / 2);
+  for (const t of [tick, 2 * tick]) {
+    if (t > max) continue;
+    for (const side of [-1, 1]) {
+      const x = side < 0 ? half - xs(t) : half + mid + xs(t);
+      s += `<line x1="${x}" x2="${x}" y1="${top}" y2="${top + G * rowH}" stroke="#e1e0d9" stroke-width="1"/>
+            <text x="${x}" y="${top + G * rowH + 12}" text-anchor="middle">${fmt(t, decimalsFor(tick))} %</text>`;
+    }
+  }
+  for (let g = 0; g < G; g++) {
+    const row = G - 1 - g, y = top + row * rowH;
+    const h22 = data["2022"]["1"][g], m22 = data["2022"]["2"][g];
+    s += `<rect x="${half - xs(h22)}" y="${y + 1}" width="${xs(h22)}" height="${rowH - 2}" rx="1.5" fill="#2a78d6">
+            <title>Hombres ${labels[g]}: 2022 ${fmt(h22, 1)} % · 2010 ${fmt(data["2010"]["1"][g], 1)} %</title></rect>
+          <rect x="${half + mid}" y="${y + 1}" width="${xs(m22)}" height="${rowH - 2}" rx="1.5" fill="#2a78d6">
+            <title>Mujeres ${labels[g]}: 2022 ${fmt(m22, 1)} % · 2010 ${fmt(data["2010"]["2"][g], 1)} %</title></rect>`;
+    if (g % 2 === 0) s += `<text x="${half + mid / 2}" y="${y + rowH - 1}" text-anchor="middle">${labels[g].replace("85 y más", "85+")}</text>`;
+  }
+  // 2010 outline as step paths
+  for (const sx of ["1", "2"]) {
+    let d = "";
+    for (let g = 0; g < G; g++) {
+      const row = G - 1 - g, y0 = top + row * rowH, y1 = y0 + rowH, v = xs(data["2010"][sx][g]);
+      const x = sx === "1" ? half - v : half + mid + v;
+      d += (g === 0 ? `M${x},${y1}` : `L${x},${y1}`) + `L${x},${y0}`;
+    }
+    s += `<path d="${d}" fill="none" stroke="#52514e" stroke-width="1.5" stroke-linejoin="round"/>`;
+  }
+  s += `</svg>`;
+  return `<div class="sub-h">Pirámide de población</div>
+    <div class="dim" style="font-size:12px">Porcentaje de la población total de cada año</div>
+    <div class="series-key"><span class="key"><span class="key-22"></span>2022 (barras)</span><span class="key"><span class="key-10"></span>2010 (contorno)</span></div>
+    <div class="pyr">${s}</div>`;
+}
+
+// ======================================================================
+// Search
+// ======================================================================
+let INDEX = [];
+function buildIndex() {
+  INDEX = [];
+  for (const n of ["provincia", "canton", "parroquia"]) {
+    const U = NAMES[n];
+    U.ids.forEach((id, i) => INDEX.push({ n, id, i, name: U.nombres[i], key: norm(U.nombres[i]),
+      ctx: LEVEL_LABEL[n] + (n === "provincia" ? "" : " · " + contextOf(n, id)) }));
+  }
+}
+const input = document.getElementById("search"), list = document.getElementById("results");
+let hits = [], active = -1;
+input.addEventListener("input", () => {
+  const q = norm(input.value.trim());
+  if (q.length < 2) { list.style.display = "none"; hits = []; return; }
+  const rank = { provincia: 0, canton: 1, parroquia: 2 };
+  hits = INDEX.filter(x => x.key.includes(q))
+    .sort((a, b) => (b.key.startsWith(q) - a.key.startsWith(q)) || rank[a.n] - rank[b.n] || a.key.localeCompare(b.key))
+    .slice(0, 8);
+  active = hits.length ? 0 : -1;
+  drawHits();
+});
+function drawHits() {
+  list.innerHTML = hits.length ? hits.map((h, j) =>
+    `<li role="option" data-j="${j}" aria-selected="${j === active}">${esc(h.name)}<span class="ctx">${esc(h.ctx)}</span></li>`).join("")
+    : `<li class="dim">Sin resultados</li>`;
+  list.style.display = "block";
+}
+input.addEventListener("keydown", e => {
+  if (!hits.length) return;
+  if (e.key === "ArrowDown") { active = (active + 1) % hits.length; drawHits(); e.preventDefault(); }
+  else if (e.key === "ArrowUp") { active = (active - 1 + hits.length) % hits.length; drawHits(); e.preventDefault(); }
+  else if (e.key === "Enter" && active >= 0) { go(hits[active]); e.preventDefault(); }
+  else if (e.key === "Escape") list.style.display = "none";
+});
+list.addEventListener("mousedown", e => { const li = e.target.closest("li[data-j]"); if (li) go(hits[+li.dataset.j]); });
+input.addEventListener("blur", () => setTimeout(() => (list.style.display = "none"), 150));
+function go(h) {
+  list.style.display = "none"; input.value = h.name; input.blur();
+  const b = NAMES[h.n].bbox[h.i];
+  map.fitBounds([[b[0], b[1]], [b[2], b[3]]], { padding: 50, maxZoom: { provincia: 9, canton: 11, parroquia: 13 }[h.n] });
+  if (h.n === state.nivel) select(h.id);
+}
+
+// ======================================================================
+// URL hash (shareable state)
+// ======================================================================
+function readHash() {
+  const p = new URLSearchParams(location.hash.slice(1));
+  if (LEVELS.includes(p.get("n"))) state.nivel = p.get("n");
+  const temas = META.variables.map(v => v.id).concat("resumen");
+  if (temas.includes(p.get("t"))) state.tema = p.get("t");
+  const cats = catOptions().map(c => c[0]);
+  state.cat = cats.includes(p.get("c")) ? p.get("c") : (DEFAULT_CAT[state.tema] || cats[0]);
+  if (["pp", "v22", "v10", "vpct"].includes(p.get("m"))) state.med = p.get("m");
+  if (state.tema === "resumen" && state.med === "vpct" && state.cat !== "poblacion") state.med = "pp";
+  if (p.get("s")) { state.sel = p.get("s"); state.selNivel = state.nivel; }
+  const z = parseFloat(p.get("z")), ll = (p.get("ll") || "").split(",").map(Number);
+  if (Number.isFinite(z) && ll.length === 2 && ll.every(Number.isFinite)) state.view = { zoom: z, center: [ll[1], ll[0]] };
+}
+let hashTimer = null;
+function writeHash() {
+  clearTimeout(hashTimer);
+  hashTimer = setTimeout(() => {
+    const c = map.getCenter();
+    const p = new URLSearchParams({ n: state.nivel, t: state.tema, c: state.cat, m: state.med,
+      z: map.getZoom().toFixed(2), ll: `${c.lat.toFixed(4)},${c.lng.toFixed(4)}` });
+    if (state.sel) p.set("s", state.sel);
+    history.replaceState(null, "", "#" + p.toString());
+  }, 250);
+}
+
+// ======================================================================
+// Mobile panel
+// ======================================================================
+const panel = document.getElementById("panel"), toggle = document.getElementById("panel-toggle");
+function setPanel(open) {
+  panel.classList.toggle("collapsed", !open);
+  toggle.setAttribute("aria-expanded", open);
+  toggle.querySelector("span").textContent = open ? "▾" : "▴";
+  setTimeout(() => map.resize(), 220);
+}
+toggle.onclick = () => setPanel(panel.classList.contains("collapsed"));
+
+// ======================================================================
+// Start
+// ======================================================================
+(async function start() {
+  META = await loadMeta();
+  const [_, __, ___, pais] = await Promise.all(["provincia", "canton", "parroquia"].map(async n => (NAMES[n] = await units(n)))
+    .concat([load("pais", "resumen")]));
+  readHash();
+  buildControls(); syncControls(); buildIndex();
+  const k = pais.indicadores.indexOf("poblacion");
+  const a = pais.v["2010"][k][0], b = pais.v["2022"][k][0];
+  document.getElementById("stats").innerHTML = `
+    <div class="stat"><span class="stat-label">Población 2010</span><span class="stat-value">${fmt(a)}</span></div>
+    <div class="stat"><span class="stat-label">Población 2022</span><span class="stat-value">${fmt(b)}</span></div>
+    <div class="stat"><span class="stat-label">Variación</span><span class="stat-value">${fmtS(100 * (b / a - 1), 1)} %</span></div>`;
+  if (state.sel) {  // restore selection from URL once the map is ready
+    const restore = () => { const id = state.sel; state.sel = null; select(id); };
+    mapReady ? restore() : map.once("idle", restore);
+  }
+  render();
+})().catch(err => {
+  console.error(err);
+  document.getElementById("legend-title").textContent = "No se pudieron cargar los datos del mapa.";
+});
+</script>
+</body>
+</html>
