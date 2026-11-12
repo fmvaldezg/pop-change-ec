@@ -1,8 +1,9 @@
-# Raw census + cartography (~18 GB) — never commit
-data/
+# Raw census + cartography (~18 GB) — never commit.
+# Leading slash = only the top-level folder (assets/data/ must be published).
+/data/
 
 # Intermediate pipeline outputs (regenerable)
-build/
+/build/
 
 .DS_Store
 __pycache__/
