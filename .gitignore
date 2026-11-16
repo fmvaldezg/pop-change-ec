@@ -5,6 +5,11 @@
 # Intermediate pipeline outputs (regenerable)
 /build/
 
+# Afro-Ecuadorian side analysis: private until results are validated.
+# Everything lives in afro/ (scripts, data, outputs, notes) + the plan itself.
+/afro/
+/docs/afro_analysis_plan.md
+
 .DS_Store
 __pycache__/
 *.pyc
